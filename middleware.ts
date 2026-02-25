@@ -1,12 +1,12 @@
-export const runtime = "nodejs";
-
-import { auth } from "@/auth";
+import NextAuth from "next-auth";
+import { authConfig } from "@/auth.config";
 import { NextResponse } from "next/server";
+
+const { auth } = NextAuth(authConfig);
 
 export default auth((req) => {
   const { nextUrl, auth: session } = req;
 
-  // Protect all dashboard routes
   if (nextUrl.pathname.startsWith("/dashboard")) {
     if (!session) {
       return NextResponse.redirect(
@@ -14,7 +14,6 @@ export default auth((req) => {
       );
     }
 
-    // Role-based routing
     const role = session.user?.role;
     if (
       nextUrl.pathname.startsWith("/dashboard/organisateur") &&
