@@ -1,0 +1,67 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=DM+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+}
+
+@layer base {
+  :root {
+    /* Central Events Design System */
+    --color-primary: #1a1a2e;
+    --color-secondary: #f59e0b;
+    --color-accent: #ef4444;
+    --color-bg: #f8f7f4;
+    --color-surface: #ffffff;
+    --color-muted: #6b7280;
+    --color-border: #e5e7eb;
+
+    /* shadcn/ui compatibility */
+    --background: 40 33% 97%;
+    --foreground: 240 29% 14%;
+    --card: 0 0% 100%;
+    --card-foreground: 240 29% 14%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 29% 14%;
+    --primary: 240 29% 14%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 38 92% 50%;
+    --secondary-foreground: 240 29% 14%;
+    --muted: 40 20% 94%;
+    --muted-foreground: 220 9% 46%;
+    --accent: 40 20% 94%;
+    --accent-foreground: 240 29% 14%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 220 13% 91%;
+    --input: 220 13% 91%;
+    --ring: 240 29% 14%;
+    --chart-1: 38 92% 50%;
+    --chart-2: 240 29% 30%;
+    --chart-3: 0 84% 60%;
+    --chart-4: 158 64% 52%;
+    --chart-5: 280 65% 60%;
+    --radius: 0.75rem;
+
+    /* Custom shadows */
+    --shadow-card: 0 2px 20px rgba(0, 0, 0, 0.06);
+    --shadow-hover: 0 8px 40px rgba(0, 0, 0, 0.12);
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-[#f8f7f4] text-[#1a1a2e] font-sans antialiased;
+  }
+
+  h1, h2, h3 {
+    font-family: 'Playfair Display', serif;
+  }
+}

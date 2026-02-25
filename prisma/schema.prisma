@@ -1,0 +1,194 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  ORGANISATEUR
+  PRESTATAIRE
+  ADMIN
+}
+
+enum StatutDemande {
+  EN_ATTENTE
+  REPONDU
+  ACCEPTE
+  REFUSE
+  ARCHIVE
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  password  String?
+  role      Role     @default(ORGANISATEUR)
+  avatar    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // next-auth required fields
+  emailVerified DateTime?
+  accounts      Account[]
+  sessions      Session[]
+
+  prestataire      Prestataire?
+  demandesEnvoyees Demande[]    @relation("OrganisateurDemandes")
+  favoris          Favori[]
+  messages         Message[]
+
+  @@map("users")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
+
+model Prestataire {
+  id               String   @id @default(cuid())
+  userId           String   @unique
+  slug             String   @unique
+  nomEntreprise    String
+  description      String?  @db.Text
+  categorie        String
+  ville            String
+  zoneIntervention String?
+  prixMin          Int?
+  prixMax          Int?
+  services         String[]
+  photos           String[]
+  siteWeb          String?
+  instagram        String?
+  whatsapp         String?
+  disponible       Boolean  @default(true)
+  verifie          Boolean  @default(false)
+  vues             Int      @default(0)
+  noteGlobale      Float?
+  nbAvis           Int      @default(0)
+  notifNouvellesDemandes Boolean @default(true)
+  notifNouveauxAvis      Boolean @default(true)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  demandes Demande[]
+  avis     Avis[]
+
+  @@map("prestataires")
+}
+
+model Demande {
+  id             String        @id @default(cuid())
+  organisateurId String
+  prestataireId  String
+  nom            String
+  email          String
+  telephone      String?
+  typeEvenement  String
+  dateEvenement  DateTime?
+  nbPersonnes    Int?
+  budgetMin      Int?
+  budgetMax      Int?
+  message        String        @db.Text
+  statut         StatutDemande @default(EN_ATTENTE)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  organisateur User        @relation("OrganisateurDemandes", fields: [organisateurId], references: [id])
+  prestataire  Prestataire @relation(fields: [prestataireId], references: [id])
+  messages     Message[]
+
+  @@map("demandes")
+}
+
+model Message {
+  id        String   @id @default(cuid())
+  demandeId String
+  auteurId  String
+  contenu   String   @db.Text
+  createdAt DateTime @default(now())
+
+  demande Demande @relation(fields: [demandeId], references: [id], onDelete: Cascade)
+  auteur  User    @relation(fields: [auteurId], references: [id])
+
+  @@map("messages")
+}
+
+model Avis {
+  id            String   @id @default(cuid())
+  prestataireId String
+  auteurNom     String
+  auteurEmail   String
+  note          Int
+  commentaire   String   @db.Text
+  reponse       String?  @db.Text
+  verifie       Boolean  @default(false)
+  createdAt     DateTime @default(now())
+
+  prestataire Prestataire @relation(fields: [prestataireId], references: [id], onDelete: Cascade)
+
+  @@map("avis")
+}
+
+model Favori {
+  id            String   @id @default(cuid())
+  userId        String
+  prestataireId String
+  createdAt     DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, prestataireId])
+  @@map("favoris")
+}
+
+model VueStats {
+  id            String   @id @default(cuid())
+  prestataireId String
+  date          DateTime @default(now()) @db.Date
+  count         Int      @default(1)
+
+  @@unique([prestataireId, date])
+  @@map("vue_stats")
+}
