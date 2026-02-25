@@ -469,7 +469,7 @@ async function main() {
   // Helper function
   const avis = async (prestataireId: string, items: Array<{ nom: string; email: string; note: number; commentaire: string }>) => {
     await prisma.avis.createMany({
-      data: items.map((a) => ({ ...a, auteurNom: a.nom, auteurEmail: a.email, prestataireId, verifie: true })),
+      data: items.map(({ nom, email, note, commentaire }) => ({ auteurNom: nom, auteurEmail: email, note, commentaire, prestataireId, verifie: true })),
     });
   };
 
