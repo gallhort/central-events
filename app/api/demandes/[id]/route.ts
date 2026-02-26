@@ -26,6 +26,7 @@ export async function PATCH(
     // Verify the prestataire owns this demande
     const prestataire = await prisma.prestataire.findUnique({
       where: { userId: session.user.id },
+      select: { id: true, tokenBalance: true },
     });
 
     if (!prestataire) {
@@ -38,6 +39,49 @@ export async function PATCH(
 
     if (!demande || demande.prestataireId !== prestataire.id) {
       return NextResponse.json({ error: "Demande introuvable" }, { status: 404 });
+    }
+
+    // Token guard: ACCEPTE and REPONDU require 1 token (REFUSE and ARCHIVE are free)
+    const tokenRequiredStatuts = ["ACCEPTE", "REPONDU"];
+    if (tokenRequiredStatuts.includes(parsed.data.statut)) {
+      const alreadyUnlocked = await prisma.demandeToken.findUnique({
+        where: {
+          prestataireId_demandeId: {
+            prestataireId: prestataire.id,
+            demandeId: params.id,
+          },
+        },
+      });
+
+      if (!alreadyUnlocked) {
+        if (prestataire.tokenBalance < 1) {
+          return NextResponse.json(
+            { error: "INSUFFICIENT_TOKENS", balance: prestataire.tokenBalance },
+            { status: 402 }
+          );
+        }
+
+        const newBalance = prestataire.tokenBalance - 1;
+        await prisma.$transaction([
+          prisma.prestataire.update({
+            where: { id: prestataire.id },
+            data: { tokenBalance: newBalance },
+          }),
+          prisma.demandeToken.create({
+            data: { prestataireId: prestataire.id, demandeId: params.id },
+          }),
+          prisma.tokenTransaction.create({
+            data: {
+              prestataireId: prestataire.id,
+              type: "DEPENSE",
+              montant: -1,
+              soldeApres: newBalance,
+              description: `Réponse à la demande #${params.id.slice(-8)}`,
+              demandeId: params.id,
+            },
+          }),
+        ]);
+      }
     }
 
     const updated = await prisma.demande.update({

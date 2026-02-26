@@ -15,6 +15,7 @@ import {
   Menu,
   X,
   Home,
+  Coins,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState } from "react";
@@ -31,18 +32,23 @@ const prestataireNav = [
   { href: "/dashboard/prestataire/demandes", label: "Demandes reçues", icon: MessageSquare },
   { href: "/dashboard/prestataire/profil", label: "Mon profil public", icon: Building2 },
   { href: "/dashboard/prestataire/avis", label: "Avis", icon: Star },
+  { href: "/dashboard/prestataire/tokens", label: "Mes jetons", icon: Coins },
   { href: "/dashboard/prestataire/parametres", label: "Paramètres", icon: Settings },
 ];
 
 interface DashboardSidebarProps {
   role: string;
   userName: string;
+  tokenBalance?: number;
 }
 
-export function DashboardSidebar({ role, userName }: DashboardSidebarProps) {
+export function DashboardSidebar({ role, userName, tokenBalance }: DashboardSidebarProps) {
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
   const navItems = role === "PRESTATAIRE" ? prestataireNav : organisateurNav;
+
+  const isLowToken = tokenBalance !== undefined && tokenBalance > 0 && tokenBalance <= 2;
+  const isEmptyToken = tokenBalance !== undefined && tokenBalance === 0;
 
   const NavContent = () => (
     <>
@@ -63,6 +69,24 @@ export function DashboardSidebar({ role, userName }: DashboardSidebarProps) {
         <p className="text-white/40 text-xs mt-0.5">
           {role === "PRESTATAIRE" ? "Prestataire" : "Organisateur"}
         </p>
+
+        {/* Token balance pill for prestataires */}
+        {role === "PRESTATAIRE" && tokenBalance !== undefined && (
+          <Link
+            href="/dashboard/prestataire/tokens"
+            className={cn(
+              "mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors",
+              isEmptyToken
+                ? "bg-red-500/20 text-red-400 hover:bg-red-500/30"
+                : isLowToken
+                ? "bg-amber-500/20 text-amber-400 hover:bg-amber-500/30"
+                : "bg-green-500/20 text-green-400 hover:bg-green-500/30"
+            )}
+          >
+            <Coins className="w-3 h-3" />
+            {tokenBalance} jeton{tokenBalance !== 1 ? "s" : ""}
+          </Link>
+        )}
       </div>
 
       {/* Navigation */}
@@ -84,6 +108,12 @@ export function DashboardSidebar({ role, userName }: DashboardSidebarProps) {
             >
               <Icon className="w-4 h-4 flex-shrink-0" />
               {item.label}
+              {/* Show token count badge on Jetons nav item */}
+              {item.href === "/dashboard/prestataire/tokens" && tokenBalance !== undefined && isEmptyToken && (
+                <span className="ml-auto bg-red-500 text-white text-xs rounded-full w-4 h-4 flex items-center justify-center">
+                  !
+                </span>
+              )}
             </Link>
           );
         })}

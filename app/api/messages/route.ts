@@ -31,6 +31,7 @@ export async function POST(req: NextRequest) {
 
     const prestataire = await prisma.prestataire.findUnique({
       where: { userId: session.user.id },
+      select: { id: true, tokenBalance: true },
     });
 
     const isOrganisateur = demande.organisateurId === session.user.id;
@@ -38,6 +39,48 @@ export async function POST(req: NextRequest) {
 
     if (!isOrganisateur && !isPrestataire) {
       return NextResponse.json({ error: "Accès non autorisé" }, { status: 403 });
+    }
+
+    // Token guard: prestataire must spend 1 token to engage with a demande (first message only)
+    if (isPrestataire && prestataire) {
+      const alreadyUnlocked = await prisma.demandeToken.findUnique({
+        where: {
+          prestataireId_demandeId: {
+            prestataireId: prestataire.id,
+            demandeId,
+          },
+        },
+      });
+
+      if (!alreadyUnlocked) {
+        if (prestataire.tokenBalance < 1) {
+          return NextResponse.json(
+            { error: "INSUFFICIENT_TOKENS", balance: prestataire.tokenBalance },
+            { status: 402 }
+          );
+        }
+
+        const newBalance = prestataire.tokenBalance - 1;
+        await prisma.$transaction([
+          prisma.prestataire.update({
+            where: { id: prestataire.id },
+            data: { tokenBalance: newBalance },
+          }),
+          prisma.demandeToken.create({
+            data: { prestataireId: prestataire.id, demandeId },
+          }),
+          prisma.tokenTransaction.create({
+            data: {
+              prestataireId: prestataire.id,
+              type: "DEPENSE",
+              montant: -1,
+              soldeApres: newBalance,
+              description: `Réponse à la demande #${demandeId.slice(-8)}`,
+              demandeId,
+            },
+          }),
+        ]);
+      }
     }
 
     const message = await prisma.message.create({

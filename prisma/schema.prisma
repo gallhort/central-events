@@ -23,6 +23,13 @@ enum StatutDemande {
   ARCHIVE
 }
 
+enum TokenTxType {
+  ACHAT
+  DEPENSE
+  OFFERT
+  REMBOURSE
+}
+
 model User {
   id        String   @id @default(cuid())
   email     String   @unique
@@ -108,12 +115,15 @@ model Prestataire {
   nbAvis           Int      @default(0)
   notifNouvellesDemandes Boolean @default(true)
   notifNouveauxAvis      Boolean @default(true)
+  tokenBalance           Int     @default(5)
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
-  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  demandes Demande[]
-  avis     Avis[]
+  user               User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  demandes           Demande[]
+  avis               Avis[]
+  transactions       TokenTransaction[]
+  demandesDebloquees DemandeToken[]
 
   @@map("prestataires")
 }
@@ -135,9 +145,11 @@ model Demande {
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
 
-  organisateur User        @relation("OrganisateurDemandes", fields: [organisateurId], references: [id])
-  prestataire  Prestataire @relation(fields: [prestataireId], references: [id])
-  messages     Message[]
+  organisateur      User               @relation("OrganisateurDemandes", fields: [organisateurId], references: [id])
+  prestataire       Prestataire        @relation(fields: [prestataireId], references: [id])
+  messages          Message[]
+  tokenTransactions TokenTransaction[]
+  demandeTokens     DemandeToken[]
 
   @@map("demandes")
 }
@@ -191,4 +203,33 @@ model VueStats {
 
   @@unique([prestataireId, date])
   @@map("vue_stats")
+}
+
+model TokenTransaction {
+  id            String      @id @default(cuid())
+  prestataireId String
+  type          TokenTxType
+  montant       Int
+  soldeApres    Int
+  description   String
+  demandeId     String?
+  createdAt     DateTime    @default(now())
+
+  prestataire Prestataire @relation(fields: [prestataireId], references: [id], onDelete: Cascade)
+  demande     Demande?    @relation(fields: [demandeId], references: [id])
+
+  @@map("token_transactions")
+}
+
+model DemandeToken {
+  id            String   @id @default(cuid())
+  prestataireId String
+  demandeId     String
+  createdAt     DateTime @default(now())
+
+  prestataire Prestataire @relation(fields: [prestataireId], references: [id])
+  demande     Demande     @relation(fields: [demandeId], references: [id])
+
+  @@unique([prestataireId, demandeId])
+  @@map("demande_tokens")
 }

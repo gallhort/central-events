@@ -3,9 +3,10 @@
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Send, Loader2 } from "lucide-react";
+import { Send, Loader2, Coins, Lock } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import { InsufficientTokensModal } from "@/components/dashboard/InsufficientTokensModal";
 
 interface Message {
   id: string;
@@ -19,18 +20,32 @@ interface MessageThreadProps {
   demandeId: string;
   messages: Message[];
   currentUserId: string;
+  isPrestataire?: boolean;
+  tokenBalance?: number;
+  alreadyUnlocked?: boolean;
 }
 
-export function MessageThread({ demandeId, messages: initialMessages, currentUserId }: MessageThreadProps) {
+export function MessageThread({
+  demandeId,
+  messages: initialMessages,
+  currentUserId,
+  isPrestataire = false,
+  tokenBalance = 0,
+  alreadyUnlocked = false,
+}: MessageThreadProps) {
   const [messages, setMessages] = useState(initialMessages);
   const [text, setText] = useState("");
   const [sending, setSending] = useState(false);
+  const [showTokenModal, setShowTokenModal] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
+
+  const isBlocked = isPrestataire && !alreadyUnlocked && tokenBalance === 0;
+  const willDeductToken = isPrestataire && !alreadyUnlocked && tokenBalance > 0;
 
   const sendMessage = async () => {
     if (!text.trim() || sending) return;
@@ -42,6 +57,11 @@ export function MessageThread({ demandeId, messages: initialMessages, currentUse
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ demandeId, contenu: text.trim() }),
       });
+
+      if (res.status === 402) {
+        setShowTokenModal(true);
+        return;
+      }
 
       if (!res.ok) throw new Error("Erreur lors de l'envoi");
 
@@ -63,80 +83,117 @@ export function MessageThread({ demandeId, messages: initialMessages, currentUse
   };
 
   return (
-    <div className="bg-white rounded-2xl shadow-card overflow-hidden">
-      <div className="px-6 py-4 border-b border-gray-100">
-        <h3 className="font-display font-bold text-[#1a1a2e]">Messagerie</h3>
-      </div>
+    <>
+      <div className="bg-white rounded-2xl shadow-card overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-100">
+          <h3 className="font-display font-bold text-[#1a1a2e]">Messagerie</h3>
+        </div>
 
-      {/* Messages */}
-      <div className="p-6 space-y-4 min-h-[200px] max-h-[400px] overflow-y-auto">
-        {messages.length === 0 ? (
-          <p className="text-center text-gray-400 text-sm py-8">
-            Aucun message. Commencez la conversation !
-          </p>
-        ) : (
-          messages.map((msg) => {
-            const isOwn = msg.auteurId === currentUserId;
-            return (
-              <div
-                key={msg.id}
-                className={cn("flex gap-3", isOwn ? "flex-row-reverse" : "flex-row")}
-              >
-                <div className="w-8 h-8 rounded-full bg-[#1a1a2e] flex items-center justify-center flex-shrink-0 mt-0.5">
-                  <span className="text-amber-400 text-xs font-bold">
-                    {msg.auteur.name?.[0]?.toUpperCase() ?? "?"}
-                  </span>
-                </div>
-                <div className={cn("max-w-[75%]", isOwn ? "items-end" : "items-start", "flex flex-col")}>
-                  <div
-                    className={cn(
-                      "rounded-2xl px-4 py-3 text-sm leading-relaxed",
-                      isOwn
-                        ? "bg-[#1a1a2e] text-white rounded-tr-sm"
-                        : "bg-[#f8f7f4] text-[#1a1a2e] rounded-tl-sm"
-                    )}
-                  >
-                    {msg.contenu}
+        {/* Messages */}
+        <div className="p-6 space-y-4 min-h-[200px] max-h-[400px] overflow-y-auto">
+          {messages.length === 0 ? (
+            <p className="text-center text-gray-400 text-sm py-8">
+              Aucun message. Commencez la conversation !
+            </p>
+          ) : (
+            messages.map((msg) => {
+              const isOwn = msg.auteurId === currentUserId;
+              return (
+                <div
+                  key={msg.id}
+                  className={cn("flex gap-3", isOwn ? "flex-row-reverse" : "flex-row")}
+                >
+                  <div className="w-8 h-8 rounded-full bg-[#1a1a2e] flex items-center justify-center flex-shrink-0 mt-0.5">
+                    <span className="text-amber-400 text-xs font-bold">
+                      {msg.auteur.name?.[0]?.toUpperCase() ?? "?"}
+                    </span>
                   </div>
-                  <span className="text-xs text-gray-400 mt-1 px-1">
-                    {new Date(msg.createdAt).toLocaleTimeString("fr-FR", {
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
+                  <div className={cn("max-w-[75%]", isOwn ? "items-end" : "items-start", "flex flex-col")}>
+                    <div
+                      className={cn(
+                        "rounded-2xl px-4 py-3 text-sm leading-relaxed",
+                        isOwn
+                          ? "bg-[#1a1a2e] text-white rounded-tr-sm"
+                          : "bg-[#f8f7f4] text-[#1a1a2e] rounded-tl-sm"
+                      )}
+                    >
+                      {msg.contenu}
+                    </div>
+                    <span className="text-xs text-gray-400 mt-1 px-1">
+                      {new Date(msg.createdAt).toLocaleTimeString("fr-FR", {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                    </span>
+                  </div>
+                </div>
+              );
+            })
+          )}
+          <div ref={bottomRef} />
+        </div>
+
+        {/* Input */}
+        <div className="px-6 pb-6 pt-2 border-t border-gray-100">
+          {isBlocked ? (
+            <div className="flex items-center gap-3 bg-red-50 border border-red-100 rounded-2xl p-4">
+              <Lock className="w-5 h-5 text-red-400 flex-shrink-0" />
+              <div className="flex-1">
+                <p className="text-sm font-medium text-red-700">Jetons épuisés</p>
+                <p className="text-xs text-red-500 mt-0.5">
+                  Rechargez votre solde pour répondre à cette demande
+                </p>
+              </div>
+              <Button
+                onClick={() => setShowTokenModal(true)}
+                size="sm"
+                className="bg-amber-500 hover:bg-amber-600 text-white flex-shrink-0"
+              >
+                <Coins className="w-3.5 h-3.5 mr-1.5" />
+                Recharger
+              </Button>
+            </div>
+          ) : (
+            <>
+              {willDeductToken && (
+                <div className="flex items-center gap-2 text-xs text-amber-600 mb-3">
+                  <Coins className="w-3.5 h-3.5 flex-shrink-0" />
+                  <span>
+                    Votre premier message coûtera <strong>1 jeton</strong> (solde : {tokenBalance})
                   </span>
                 </div>
+              )}
+              <div className="flex gap-3 items-end">
+                <Textarea
+                  value={text}
+                  onChange={(e) => setText(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder="Écrivez votre message... (Entrée pour envoyer)"
+                  rows={2}
+                  className="flex-1 resize-none"
+                />
+                <Button
+                  onClick={sendMessage}
+                  disabled={!text.trim() || sending}
+                  aria-label="Envoyer le message"
+                  className="bg-amber-500 hover:bg-amber-600 text-white px-3 py-2 h-auto"
+                >
+                  {sending ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Send className="w-4 h-4" />
+                  )}
+                </Button>
               </div>
-            );
-          })
-        )}
-        <div ref={bottomRef} />
-      </div>
-
-      {/* Input */}
-      <div className="px-6 pb-6 pt-2 border-t border-gray-100">
-        <div className="flex gap-3 items-end">
-          <Textarea
-            value={text}
-            onChange={(e) => setText(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Écrivez votre message... (Entrée pour envoyer)"
-            rows={2}
-            className="flex-1 resize-none"
-          />
-          <Button
-            onClick={sendMessage}
-            disabled={!text.trim() || sending}
-            aria-label="Envoyer le message"
-            className="bg-amber-500 hover:bg-amber-600 text-white px-3 py-2 h-auto"
-          >
-            {sending ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <Send className="w-4 h-4" />
-            )}
-          </Button>
+            </>
+          )}
         </div>
       </div>
-    </div>
+
+      <InsufficientTokensModal
+        open={showTokenModal}
+        onClose={() => setShowTokenModal(false)}
+      />
+    </>
   );
 }

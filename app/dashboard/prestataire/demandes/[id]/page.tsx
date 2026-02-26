@@ -28,22 +28,35 @@ export default async function DemandeDetailPrestatairePage({ params }: { params:
 
   const prestataire = await prisma.prestataire.findUnique({
     where: { userId: session.user.id },
+    select: { id: true, tokenBalance: true },
   });
 
   if (!prestataire) redirect("/dashboard/prestataire");
 
-  const demande = await prisma.demande.findUnique({
-    where: { id: params.id, prestataireId: prestataire.id },
-    include: {
-      organisateur: { select: { name: true, email: true } },
-      messages: {
-        include: { auteur: { select: { name: true, role: true } } },
-        orderBy: { createdAt: "asc" },
+  const [demande, demandeToken] = await Promise.all([
+    prisma.demande.findUnique({
+      where: { id: params.id, prestataireId: prestataire.id },
+      include: {
+        organisateur: { select: { name: true, email: true } },
+        messages: {
+          include: { auteur: { select: { name: true, role: true } } },
+          orderBy: { createdAt: "asc" },
+        },
       },
-    },
-  });
+    }),
+    prisma.demandeToken.findUnique({
+      where: {
+        prestataireId_demandeId: {
+          prestataireId: prestataire.id,
+          demandeId: params.id,
+        },
+      },
+    }),
+  ]);
 
   if (!demande) notFound();
+
+  const alreadyUnlocked = !!demandeToken;
 
   return (
     <div>
@@ -89,7 +102,11 @@ export default async function DemandeDetailPrestatairePage({ params }: { params:
 
             {/* Action buttons */}
             {demande.statut === "EN_ATTENTE" && (
-              <UpdateDemandeStatus demandeId={demande.id} />
+              <UpdateDemandeStatus
+                demandeId={demande.id}
+                tokenBalance={prestataire.tokenBalance}
+                alreadyUnlocked={alreadyUnlocked}
+              />
             )}
           </div>
 
@@ -98,6 +115,9 @@ export default async function DemandeDetailPrestatairePage({ params }: { params:
             demandeId={demande.id}
             messages={demande.messages}
             currentUserId={session.user.id}
+            isPrestataire={true}
+            tokenBalance={prestataire.tokenBalance}
+            alreadyUnlocked={alreadyUnlocked}
           />
         </div>
 

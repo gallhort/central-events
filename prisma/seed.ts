@@ -11,6 +11,8 @@ async function main() {
   console.log("🌱 Seeding Central Events database...");
 
   // Clean existing data
+  await prisma.tokenTransaction.deleteMany();
+  await prisma.demandeToken.deleteMany();
   await prisma.message.deleteMany();
   await prisma.avis.deleteMany();
   await prisma.demande.deleteMany();
@@ -626,6 +628,77 @@ async function main() {
         "Bonjour, suite à la découverte de votre travail sur Instagram, nous aimerions vous confier la photographie de notre mariage le 15 juin 2026. Cérémonie civile + religieuse + réception. Environ 10h de couverture. Votre style correspond exactement à ce que nous recherchons.",
       statut: "EN_ATTENTE",
     },
+  });
+
+  // ──────────────── TOKEN TRANSACTIONS ────────────────
+
+  const allPrestataires = [
+    traiteurParis, traiteurLyon, traiteurMarseille,
+    photoParis, photoLyon, photoMarseille,
+    djParis, djLyon,
+    salleParis, salleMarseille,
+    fleuristeParis, fleuristeLyon,
+  ];
+
+  // Welcome transactions for all prestataires (5 free tokens each — matches schema default)
+  await Promise.all(
+    allPrestataires.map((p) =>
+      prisma.tokenTransaction.create({
+        data: {
+          prestataireId: p.prestataire!.id,
+          type: "OFFERT",
+          montant: 5,
+          soldeApres: 5,
+          description: "Jetons de bienvenue",
+        },
+      })
+    )
+  );
+
+  // demande1 was responded to (traiteurParis sent a message) — create DemandeToken + DEPENSE
+  await prisma.demandeToken.create({
+    data: {
+      prestataireId: traiteurParis.prestataire!.id,
+      demandeId: demande1.id,
+    },
+  });
+  await prisma.tokenTransaction.create({
+    data: {
+      prestataireId: traiteurParis.prestataire!.id,
+      type: "DEPENSE",
+      montant: -1,
+      soldeApres: 4,
+      description: `Réponse à la demande #${demande1.id.slice(-8)}`,
+      demandeId: demande1.id,
+    },
+  });
+  // Update traiteurParis balance to 4 (spent 1)
+  await prisma.prestataire.update({
+    where: { id: traiteurParis.prestataire!.id },
+    data: { tokenBalance: 4 },
+  });
+
+  // demande2 was accepted (djParis) — create DemandeToken + DEPENSE
+  await prisma.demandeToken.create({
+    data: {
+      prestataireId: djParis.prestataire!.id,
+      demandeId: demande2.id,
+    },
+  });
+  await prisma.tokenTransaction.create({
+    data: {
+      prestataireId: djParis.prestataire!.id,
+      type: "DEPENSE",
+      montant: -1,
+      soldeApres: 4,
+      description: `Réponse à la demande #${demande2.id.slice(-8)}`,
+      demandeId: demande2.id,
+    },
+  });
+  // Update djParis balance to 4
+  await prisma.prestataire.update({
+    where: { id: djParis.prestataire!.id },
+    data: { tokenBalance: 4 },
   });
 
   console.log("✅ Seed completed successfully!");
